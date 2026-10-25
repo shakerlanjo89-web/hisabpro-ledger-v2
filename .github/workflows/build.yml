@@ -1,1 +1,71 @@
 
+name: Build HisabPro Ledger
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify starter ZIP
+        run: |
+          test -f HisabPro_Ledger_Starter_v1.2_FIXED.zip
+          unzip -t HisabPro_Ledger_Starter_v1.2_FIXED.zip
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Extract application source
+        run: |
+          mkdir -p /tmp/hisabpro
+          unzip -q HisabPro_Ledger_Starter_v1.2_FIXED.zip -d /tmp/hisabpro
+
+          test -f /tmp/hisabpro/pubspec.yaml
+          test -f /tmp/hisabpro/lib/main.dart
+
+          cp /tmp/hisabpro/pubspec.yaml .
+          cp /tmp/hisabpro/analysis_options.yaml .
+          rm -rf lib test
+          cp -R /tmp/hisabpro/lib .
+
+      - name: Generate platform folders
+        run: flutter create . --platforms=android,web
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check Dart code
+        run: flutter analyze lib
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Build Web app
+        run: flutter build web --release
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HisabPro-Ledger-Android-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: HisabPro-Ledger-Web
+          path: build/web/
+
